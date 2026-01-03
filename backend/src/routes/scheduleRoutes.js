@@ -4,7 +4,7 @@ const router = express.Router();
 
 router.post('/', (req, res) => {
     res.send('Schedule endpoint');
-    // Handle schedule creation logic here
+    // Handle schedule creation logic
 });
 
 export default router;
