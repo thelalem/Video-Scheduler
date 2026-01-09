@@ -7,4 +7,4 @@ router.post('/', (req, res) => {
     // Handle schedule creation logic
 });
 
-export default router
+export default router;
