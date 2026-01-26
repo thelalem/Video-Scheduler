@@ -12,4 +12,4 @@ export default router
 // able to verify any banks generated qr code on the reciept
 // check date with current date to see if its valid
 //decentralized verification system for qr codes
-123
+123yes here
