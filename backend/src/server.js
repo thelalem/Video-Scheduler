@@ -5,6 +5,7 @@ import connectDB from './config/db.js';
 
 import uploadRoutes from './routes/uploadRoutes.js';
 import scheduleRoutes from './routes/scheduleRoutes.js';
+import { startScheduler } from './cron/scheduler.js';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/schedules', scheduleRoutes);
 
 connectDB();
+startScheduler();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
