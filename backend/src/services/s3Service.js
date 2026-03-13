@@ -21,14 +21,6 @@ const s3 = new S3Client({
  * @returns {Promise<string>} S3 object key
  */
 export const uploadFile = async (filePath, key, contentType = "video/mp4") => {
-  console.log("[S3] uploadFile called", {
-    filePath,
-    key,
-    contentType,
-    bucket: process.env.S3_BUCKET_NAME,
-    region: process.env.AWS_REGION,
-  });
-
   if (!fs.existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`);
   }
@@ -43,20 +35,10 @@ export const uploadFile = async (filePath, key, contentType = "video/mp4") => {
   };
 
   try {
-    console.log("[S3] Sending PutObjectCommand", {
-      bucket: uploadParams.Bucket,
-      key: uploadParams.Key,
-      contentType: uploadParams.ContentType,
-    });
     await s3.send(new PutObjectCommand(uploadParams));
-    console.log("[S3] PutObjectCommand success", { key });
     return key;
   } catch (err) {
-    console.error("[S3] Error uploading to S3", {
-      message: err.message,
-      name: err.name,
-      stack: err.stack,
-    });
+    console.error("Error uploading to S3:", err);
     throw err;
   }
 };
