@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import API from "./api/axios";
 
 function App() {
@@ -7,9 +7,39 @@ function App() {
   const [sendAt, setSendAt] = useState("");
   const [uploading, setUploading] = useState(false);
   const [telegramConnected, setTelegramConnected] = useState(false);
+  const [telegramUser, setTelegramUser] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [preview, setPreview] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+const[token, setToken] = useState(() => {
+  let saved = localStorage.getItem("connectToken");
+  if (saved) return saved;
+  const newToken = crypto.randomUUID();
+  localStorage.setItem("connectToken", newToken);
+  return newToken;
+});
+
+  console.log("Generated Connect Token:", token);
+  useEffect(() => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await API.get(`/telegram-status/${token}`);
+      if (res.data.connected) {
+        console.log(res.data)
+        setTelegramConnected(true);
+        setTelegramUser(res.data.user.username);
+        clearInterval(interval);
+      }
+    } catch (err) {
+      console.error("Error checking Telegram status:", err);
+    }
+  }, 2000);
+
+  return () => clearInterval(interval);
+}, [token]);
+
+
 
   // Handle file selection with preview
   const handleFileChange = (e) => {
@@ -70,6 +100,7 @@ function App() {
     const formData = new FormData();
     formData.append("video", file);
     formData.append("sendAt", sendAt);
+    formData.append("token", token);
 
     setUploading(true);
     setUploadProgress(0);
@@ -137,8 +168,12 @@ function App() {
         {/* Main Card */}
         <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border border-white/20">
           
-          {/* Telegram Connection Status */}
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+          {/* Telegram Connection Status - UPDATED UI */}
+          <div className={`mb-6 p-4 rounded-xl border ${
+            telegramConnected 
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+              : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100'
+          }`}>
             {telegramConnected ? (
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -146,15 +181,31 @@ function App() {
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                     <div className="absolute top-0 left-0 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
                   </div>
-                  <span className="text-sm font-medium text-gray-700">Connected to Telegram</span>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700 block">Connected to Telegram</span>
+                    {telegramUser && (
+                      <span className="text-xs text-gray-500">
+                        {telegramUser.first_name} {telegramUser.last_name || ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-xs bg-white px-2 py-1 rounded-full text-gray-500">@your_username</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs bg-white px-3 py-1.5 rounded-full text-gray-600 font-medium shadow-sm">
+                    @{telegramUser?.username || 'connected'}
+                  </span>
+                  <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center shadow-md">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="text-center">
                 <p className="text-sm text-gray-600 mb-3">Connect Telegram to receive your videos</p>
                 <a
-                  href={`https://t.me/${TELEGRAM_BOT}`}
+                  href={`https://t.me/${TELEGRAM_BOT}?start=${token}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl text-sm font-medium transition-all transform hover:scale-105 shadow-lg"

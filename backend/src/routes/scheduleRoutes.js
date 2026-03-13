@@ -6,13 +6,19 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
     try{
-        const {s3Url, chatId, sendAt} = req.body;
-        if (!s3Url || !chatId || !sendAt) {
+        const {s3Url, sendAt, connectToken} = req.body;
+        if (!s3Url || !sendAt || !connectToken) {
             return res.status(400).json({
-                message: "s3Url, chatId, and sendAt are required",
+                message: "s3Url, sendAt, and connectToken are required",
             });
         }
-        const user = await User.findOne({ telegramId: "123456789" }); // test user
+        const user = await User.findOne({ connectToken }); // test user
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+            });
+        }
         const newSchedule = await Schedule.create({
             s3Url,
             user: user._id,

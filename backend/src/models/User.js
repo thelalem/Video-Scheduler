@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema(
         },
         username: String,
         firstName: String,
+        connectToken: String,
+        connectedAt: Date,
     },
     {
         timestamps: true,
