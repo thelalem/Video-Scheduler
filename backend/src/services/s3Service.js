@@ -1,7 +1,7 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from "dotenv";
 import fs from "fs";
-import path from "path";
 
 dotenv.config();
 
@@ -14,25 +14,53 @@ const s3 = new S3Client({
 });
 
 /**
- * Upload a local file to S3
- * @param {string} filePath - local path to file
- * @param {string} key - filename in S3
+ * Upload a local file to S3 and return the stored object key.
+ * @param {string} filePath - Local path to file
+ * @param {string} key - Filename in S3
+ * @param {string} contentType - MIME type of the uploaded file
+ * @returns {Promise<string>} S3 object key
  */
-export const uploadFile = async (filePath, key) => {
+export const uploadFile = async (filePath, key, contentType = "video/mp4") => {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`File not found: ${filePath}`);
+  }
+
   const fileStream = fs.createReadStream(filePath);
 
   const uploadParams = {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: key,
     Body: fileStream,
-    ContentType: "video/mp4", // adjust if needed
+    ContentType: contentType,
   };
 
   try {
-    const result = await s3.send(new PutObjectCommand(uploadParams));
-    return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    await s3.send(new PutObjectCommand(uploadParams));
+    return key;
   } catch (err) {
     console.error("Error uploading to S3:", err);
+    throw err;
+  }
+};
+
+/**
+ * Create a temporary signed download URL for a stored object key.
+ * @param {string} key - S3 object key
+ * @param {number} expiresIn - Signed URL expiration in seconds
+ * @returns {Promise<string>} Signed GET URL
+ */
+export const getSignedDownloadUrl = async (key, expiresIn = 3600) => {
+  try {
+    return await getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: key,
+      }),
+      { expiresIn }
+    );
+  } catch (err) {
+    console.error("Error generating signed download URL:", err);
     throw err;
   }
 };

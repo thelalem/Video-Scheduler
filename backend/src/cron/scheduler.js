@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import Schedule from '../models/Schedule.js';
 import { sendVideoToTelegram } from '../services/telegramServices.js';
+import { getSignedDownloadUrl } from '../services/s3Service.js';
 
 export const startScheduler = () => {
     cron.schedule('* * * * *', async () => {
@@ -14,7 +15,12 @@ export const startScheduler = () => {
 
         for (const video of dueVideos) {
             try {
-                await sendVideoToTelegram(video.user.telegramId, video.s3Url);
+                const isHttpUrl = /^https?:\/\//i.test(video.s3Url);
+                const deliveryUrl = isHttpUrl
+                    ? video.s3Url
+                    : await getSignedDownloadUrl(video.s3Url, 3600);
+
+                await sendVideoToTelegram(video.user.telegramId, deliveryUrl);
 
                 video.sent = true;
                 await video.save();

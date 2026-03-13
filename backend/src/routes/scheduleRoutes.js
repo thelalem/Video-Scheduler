@@ -6,13 +6,18 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
     try{
-        const {s3Url, sendAt, connectToken} = req.body;
-        if (!s3Url || !sendAt || !connectToken) {
+        const {s3Url, sendAt, telegramID} = req.body;
+        const missingFields = [];
+        if (!s3Url) missingFields.push('s3Url');
+        if (!sendAt) missingFields.push('sendAt');
+        if (!telegramID) missingFields.push('telegramID');
+
+        if (missingFields.length > 0) {
             return res.status(400).json({
-                message: "s3Url, sendAt, and connectToken are required",
+            message: `Missing required field(s): ${missingFields.join(', ')}`,
             });
         }
-        const user = await User.findOne({ connectToken }); // test user
+        const user = await User.findOne({ telegramId: telegramID });
 
         if (!user) {
             return res.status(404).json({
@@ -35,6 +40,7 @@ router.post('/', async (req, res) => {
             message: "Failed to schedule video",
             error: error.message,
         });
+        console.error("Error scheduling video:", error);
     }
 });
 
