@@ -11,6 +11,7 @@ function App() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [preview, setPreview] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [telegramID, setTelegramID] = useState(null);
 
 const[token, setToken] = useState(() => {
   let saved = localStorage.getItem("connectToken");
@@ -26,9 +27,11 @@ const[token, setToken] = useState(() => {
     try {
       const res = await API.get(`/telegram-status/${token}`);
       if (res.data.connected) {
-        console.log(res.data)
         setTelegramConnected(true);
-        setTelegramUser(res.data.user.username);
+        setTelegramUser(res.data.user);
+        console.log("Telegram User:", res.data.user.username);
+        setTelegramID(res.data.user.telegramId);
+        console.log("Telegram ID:", res.data.user.telegramId);
         clearInterval(interval);
       }
     } catch (err) {
@@ -99,8 +102,6 @@ const[token, setToken] = useState(() => {
 
     const formData = new FormData();
     formData.append("video", file);
-    formData.append("sendAt", sendAt);
-    formData.append("token", token);
 
     setUploading(true);
     setUploadProgress(0);
@@ -118,7 +119,14 @@ const[token, setToken] = useState(() => {
     }, 500);
 
     try {
-      await API.post("/schedule-video", formData);
+      const uploadRes = await API.post("/uploads", formData);
+      const { s3Url } = uploadRes.data;
+
+      await API.post("/schedule-video", {
+        s3Url,
+        sendAt,
+        telegramID,
+      });
       
       clearInterval(progressInterval);
       setUploadProgress(100);
