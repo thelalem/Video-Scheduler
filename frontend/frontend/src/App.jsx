@@ -13,6 +13,7 @@ function App() {
   const [preview, setPreview] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [telegramID, setTelegramID] = useState(null);
+  const [scheduledAtUtc, setScheduledAtUtc] = useState(null);
 
 const[token, setToken] = useState(() => {
   let saved = localStorage.getItem("connectToken");
@@ -125,6 +126,7 @@ const[token, setToken] = useState(() => {
     setUploading(true);
     setUploadProgress(0);
     setMessage({ type: '', text: '' });
+    setScheduledAtUtc(null);
 
     // Simulate progress (replace with actual upload progress)
     const progressInterval = setInterval(() => {
@@ -143,11 +145,14 @@ const[token, setToken] = useState(() => {
 
       const sendAtUtc = new Date(sendAt).toISOString();
 
-      await API.post("/schedule-video", {
+      const scheduleRes = await API.post("/schedule-video", {
         s3Url,
         sendAt: sendAtUtc,
         telegramID,
+        clientTimeZone: userTimeZone,
       });
+
+      setScheduledAtUtc(scheduleRes.data?.normalizedSendAtUtc || sendAtUtc);
       
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -369,7 +374,14 @@ const[token, setToken] = useState(() => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 )}
-                <span>{message.text}</span>
+                <div>
+                  <span>{message.text}</span>
+                  {message.type === 'success' && scheduledAtUtc && (
+                    <div className="mt-1 text-xs text-green-700">
+                      Stored on server (UTC): {new Date(scheduledAtUtc).toISOString()}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -414,6 +426,11 @@ const[token, setToken] = useState(() => {
                       {formatInUserTimezone(sendAt)}
                     </span>
                   </p>
+                  {scheduledAtUtc && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Server UTC: <span className="font-medium">{new Date(scheduledAtUtc).toISOString()}</span>
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
