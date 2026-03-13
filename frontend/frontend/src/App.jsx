@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import API from "./api/axios";
 
 function App() {
@@ -14,6 +14,7 @@ function App() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [telegramID, setTelegramID] = useState(null);
   const [scheduledAtUtc, setScheduledAtUtc] = useState(null);
+  const sendAtInputRef = useRef(null);
 
 const[token, setToken] = useState(() => {
   let saved = localStorage.getItem("connectToken");
@@ -128,22 +129,18 @@ const[token, setToken] = useState(() => {
     setMessage({ type: '', text: '' });
     setScheduledAtUtc(null);
 
-    // Simulate progress (replace with actual upload progress)
-    const progressInterval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(progressInterval);
-          return 90;
-        }
-        return prev + 10;
-      });
-    }, 500);
-
     try {
-      const uploadRes = await API.post("/uploads", formData);
+      const uploadRes = await API.post("/uploads", formData, {
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) return;
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(Math.min(percent, 95));
+        },
+      });
       const { s3Url } = uploadRes.data;
 
       const sendAtUtc = new Date(sendAt).toISOString();
+      setUploadProgress(96);
 
       const scheduleRes = await API.post("/schedule-video", {
         s3Url,
@@ -153,8 +150,6 @@ const[token, setToken] = useState(() => {
       });
 
       setScheduledAtUtc(scheduleRes.data?.normalizedSendAtUtc || sendAtUtc);
-      
-      clearInterval(progressInterval);
       setUploadProgress(100);
       
       setMessage({ 
@@ -172,7 +167,6 @@ const[token, setToken] = useState(() => {
       }, 2000);
       
     } catch (err) {
-      clearInterval(progressInterval);
       setUploadProgress(0);
       setMessage({ 
         type: 'error', 
@@ -329,16 +323,31 @@ const[token, setToken] = useState(() => {
               <p className="text-xs text-gray-500 mb-2">Shown in your timezone: {userTimeZone}</p>
               <div className="relative">
                 <input
+                  ref={sendAtInputRef}
                   type="datetime-local"
                   value={sendAt}
                   onChange={(e) => setSendAt(e.target.value)}
                   min={toLocalDateTimeInputValue(new Date())}
                   disabled={!telegramConnected}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="w-full px-4 pr-14 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 />
-                <svg className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!sendAtInputRef.current) return;
+                    if (typeof sendAtInputRef.current.showPicker === 'function') {
+                      sendAtInputRef.current.showPicker();
+                    }
+                    sendAtInputRef.current.focus();
+                  }}
+                  disabled={!telegramConnected}
+                  className="absolute inset-y-0 right-0 px-4 flex items-center text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Open date and time picker"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </button>
               </div>
             </div>
 
