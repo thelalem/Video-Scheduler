@@ -3,6 +3,7 @@ import API from "./api/axios";
 
 function App() {
   const TELEGRAM_BOT = "vidscheduler_bot"; // Your bot username
+  const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const [file, setFile] = useState(null);
   const [sendAt, setSendAt] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -25,6 +26,7 @@ const[token, setToken] = useState(() => {
   useEffect(() => {
   const interval = setInterval(async () => {
     try {
+          console.log("Checking Telegram connection status...");
       const res = await API.get(`/telegram-status/${token}`);
       if (res.data.connected) {
         setTelegramConnected(true);
@@ -65,6 +67,23 @@ const[token, setToken] = useState(() => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const toLocalDateTimeInputValue = (date) => {
+    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return localDate.toISOString().slice(0, 16);
+  };
+
+  const formatInUserTimezone = (dateValue) => {
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: userTimeZone,
+      timeZoneName: 'short',
+    }).format(new Date(dateValue));
   };
 
   const handleSubmit = async (e) => {
@@ -122,9 +141,11 @@ const[token, setToken] = useState(() => {
       const uploadRes = await API.post("/uploads", formData);
       const { s3Url } = uploadRes.data;
 
+      const sendAtUtc = new Date(sendAt).toISOString();
+
       await API.post("/schedule-video", {
         s3Url,
-        sendAt,
+        sendAt: sendAtUtc,
         telegramID,
       });
       
@@ -300,12 +321,13 @@ const[token, setToken] = useState(() => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Deliver via Telegram on
               </label>
+              <p className="text-xs text-gray-500 mb-2">Shown in your timezone: {userTimeZone}</p>
               <div className="relative">
                 <input
                   type="datetime-local"
                   value={sendAt}
                   onChange={(e) => setSendAt(e.target.value)}
-                  min={new Date().toISOString().slice(0, 16)}
+                  min={toLocalDateTimeInputValue(new Date())}
                   disabled={!telegramConnected}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 />
@@ -389,13 +411,7 @@ const[token, setToken] = useState(() => {
                   <p className="text-xs text-gray-600">
                     <span className="font-medium">{file.name}</span> will be sent to your Telegram on{' '}
                     <span className="font-medium text-purple-600">
-                      {new Date(sendAt).toLocaleString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      {formatInUserTimezone(sendAt)}
                     </span>
                   </p>
                 </div>
